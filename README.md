@@ -14,7 +14,7 @@ This project is inspired by [Andrej Karpathy/llama2.c](https://github.com/karpat
 ### 1. Prepare the Model
 Obtain a Llama 2 checkpoint and tokenizer in the `.bin` format (e.g., using the `export` script from `llama2.c`).
 
-### 2. Generate Minecraft Functions
+### 2. Generate Minecraft Datapack
 ```bash
 python generate.py <checkpoint.bin> <tokenizer.bin> <output>
 ```
