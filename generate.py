@@ -882,7 +882,7 @@ with FunctionWritter('params') as f:
 # Debugging functions
 # -------------------
 
-DEBUG = True
+DEBUG = False
 
 def tellraw_float_array(start: str, arr: str, a: int, b: int, write):
     if not DEBUG:
