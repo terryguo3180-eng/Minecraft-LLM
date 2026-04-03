@@ -28,8 +28,9 @@ In‑game, execute:
 ```
 /reload
 /function llm:setup
+/gamerule max_command_sequence_length 2147483647
 ```
-This initialises scoreboard objectives, constants, parameters, and clears the KV cache.
+This initialises scoreboard objectives, constants, parameters, clears the KV cache, and make sure the game won't truncate the command execution.
 
 Set the starting token & position, and clear the token buffer:
 ```
