@@ -1867,6 +1867,7 @@ with FunctionWritter('forward') as f:
 
 # Setup scoreboard objectives & constants & progress bar & parameters, clear key/value cache
 with FunctionWritter('setup') as f:
+    f.write(f'gamerule max_command_sequence_length 2147483647')
     f.write(f'scoreboard objectives add llm dummy')  # Global objective for temp vars
     f.write(f'scoreboard objectives add x dummy')  # Activation at current time stamp (dim,)
     f.write(f'scoreboard objectives add tx dummy')  # Same, but inside a residual branch (dim,)
@@ -1929,6 +1930,12 @@ with FunctionWritter('autoregressive') as f:
     f.write(f'scoreboard players operation tok llm = max_i llm')
     f.write(f'scoreboard players add pos llm 1')
     f.write(f'execute if score pos llm = steps llm run return 1')
+    f.write(f'function llm:autoregressive')
+
+with FunctionWritter('generate_continue') as f:
+    f.write(f'$scoreboard players set steps llm $(s)')
+    f.write(f'scoreboard players operation steps llm += pos llm')
+    f.write(f'execute if score steps llm matches ..0 run return run tellraw @a {{"text":"Steps must be a positive integer!","color":"red"}}')
     f.write(f'function llm:autoregressive')
 
 # Compress into .zip file
