@@ -41,7 +41,9 @@ If you want to continue the generation process after it stops, simply run:
 ```
 Where `<steps>` is the number of additional tokens to generate.
 
-You can also run the model manually. To initiallize the model, run:
+## Running the model manually
+
+You can also run the model manually if you want to use this as part of your other project. To initiallize the model, run:
 ```
 /function llm:setup
 ```
