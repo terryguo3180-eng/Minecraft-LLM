@@ -12,25 +12,40 @@ This project is inspired by [Andrej Karpathy/llama2.c](https://github.com/karpat
 ## How to Use
 
 ### 1. Prepare the Model
-Obtain a Llama 2 checkpoint and tokenizer in the `.bin` format (e.g., using the `export` script from `llama2.c`).
+Obtain a Llama 2 checkpoint and tokenizer in the `.bin` format (using the `export` script from `llama2.c`).
 
 ### 2. Generate Minecraft Datapack
 ```bash
 python generate.py <checkpoint.bin> <tokenizer.bin> <output>
 ```
-The script will generate the datapack with the name of `<output>.zip`.
+The script will generate a datapack named `<output>.zip`.
 
 ### 3. Import into Your World
 Copy the generated `.zip` file into your Minecraft world’s `datapacks` directory.
 
-### 4. Run the Model
-In‑game, execute:
+### 4. Launch Minecraft
+Version 1.21.11 is recommended, other versions are not guarenteed to work.
+
+### 5. Run the Model
+Run `/reload` after entering the world.
+
+For auto-regressive generating, execute:
 ```
-/reload
+/function llm:generate {s:<steps>}
+```
+Where `<steps>` is the number of tokens you want the model to generate.
+
+If you want to continue the generation process after it stops, simply run:
+```
+/function llm:generate_continue {s:<steps>}
+```
+Where `<steps>` is the number of additional tokens to generate
+
+You can also run the model manually. To initiallize the model, run:
+```
 /function llm:setup
-/gamerule max_command_sequence_length 2147483647
 ```
-This initialises scoreboard objectives, constants, parameters, clears the KV cache, and make sure the game won't truncate the command execution.
+This initialises scoreboard objectives, constants, parameters and clears the KV cache.
 
 Set the starting token & position, and clear the token buffer:
 ```
