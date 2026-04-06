@@ -12,10 +12,7 @@ parser = argparse.ArgumentParser(description="Generate Minecraft functions for L
 parser.add_argument("checkpoint", help="Path to model checkpoint (.bin)")
 parser.add_argument("tokenizer", help="Path to tokenizer (.bin)")
 parser.add_argument("pack", help="Create a datapack zip file with this name (without .zip)")
-parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode")
 args = parser.parse_args()
-
-DEBUG = args.debug
 
 checkpoint = args.checkpoint
 tokenizer = args.tokenizer
@@ -884,41 +881,6 @@ with FunctionWritter('params') as f:
         f.write(f'bossbar set progress value {i}')
 
     f.write(f'bossbar set progress players')
-        
-# Debugging functions
-# -------------------
-
-def tellraw_float_array(start: str, arr: str, a: int, b: int, write):
-    if not DEBUG:
-        return
-    
-    for i in range(a, b):
-        write(f'scoreboard players operation xb llm = {i}b {arr}')
-        write(f'scoreboard players operation xe llm = {i}e {arr}')
-        write(f'scoreboard players operation xs llm = {i}s {arr}')
-        write(f'function llm:float_to_nbt')
-        write(f'data modify storage llm args.{i} set string storage llm args.x 0 -1')
-
-    cmd = f'tellraw @a ["{start}[",'
-    for i in range(a, b):
-        cmd += f'{{"storage":"llm","nbt":"args.{i}"}},", ",'
-    cmd = cmd[:-5] + '"]"]\n'
-    write(cmd)
-    
-def tellraw_float_var(start: str, var: str, objective: str, write):
-    if not DEBUG:
-        return
-    
-    if var == 'x' and objective == 'llm':
-        pass
-    else:
-        write(f'scoreboard players operation xb llm = {var}b {objective}')
-        write(f'scoreboard players operation xe llm = {var}e {objective}')
-        write(f'scoreboard players operation xs llm = {var}s {objective}')
-
-    write(f'function llm:float_to_nbt')
-    write(f'data modify storage llm args.x set string storage llm args.x 0 -1')
-    write(f'tellraw @a ["{start}",{{"storage":"llm","nbt":"args.x"}}]')
 
 # Transformer implementation
 # --------------------------
@@ -1163,24 +1125,16 @@ with FunctionWritter(f'silu') as f1:
         f1.write(f'scoreboard players operation xe llm = {i}e th')
         f1.write(f'scoreboard players operation xs llm = {i}s th')
 
-        # tellraw_float_var(f'th[{i}] = ', 'x', 'llm', f1.write)
-
         # Compute x = exp(-th[i])
         f1.write(f'scoreboard players operation xs llm *= -1 llm')
 
-        # tellraw_float_var(f'-th[{i}] = ', 'x', 'llm', f1.write)
-
         f1.write(f'function llm:exp')
-
-        # tellraw_float_var(f'exp(-th[{i}]) = ', 'x', 'llm', f1.write)
 
         # x += 1.0
         f1.write(f'scoreboard players set yb llm 10000000')
         f1.write(f'scoreboard players set ye llm 0')
         f1.write(f'scoreboard players set ys llm 1')
         f1.write(f'function llm:add')
-        
-        # tellraw_float_var(f'exp(-th[{i}]) + 1 = ', 'x', 'llm', f1.write)
 
         # x = th2[i] / x
         f1.write(f'scoreboard players operation yb llm = xb llm')
@@ -1191,15 +1145,11 @@ with FunctionWritter(f'silu') as f1:
         f1.write(f'scoreboard players operation xs llm = {i}s th2')
         f1.write(f'function llm:div')
 
-        # tellraw_float_var(f'th2[{i}] / (exp(-th[{i}]) + 1) = ', 'x', 'llm', f1.write)
-
         # x *= th[i]
         f1.write(f'scoreboard players operation yb llm = {i}b th')
         f1.write(f'scoreboard players operation ye llm = {i}e th')
         f1.write(f'scoreboard players operation ys llm = {i}s th')
         f1.write(f'function llm:mul')
-
-        # tellraw_float_var(f'th[{i}] * th2[{i}] / (exp(-th[{i}]) + 1) = ', 'x', 'llm', f1.write)
 
         # th[i] = x
         f1.write(f'scoreboard players operation {i}b th = xb llm')
@@ -1318,7 +1268,6 @@ with FunctionWritter(f'rope') as f1:
 
         # v = degrees(v)
         # Took me forever to trace this bug
-        tellraw_float_var('v = ', 'x', 'llm', f1.write)
 
         f1.write(f'scoreboard players set yb llm 17453293')
         f1.write(f'scoreboard players set ye llm -2')
@@ -1332,7 +1281,6 @@ with FunctionWritter(f'rope') as f1:
 
         # fci = sin(v)
         f1.write(f'function llm:sin')
-        tellraw_float_var('fci = ', 'x', 'llm', f1.write)
 
         f1.write(f'scoreboard players operation fcib llm = xb llm')
         f1.write(f'scoreboard players operation fcie llm = xe llm')
@@ -1344,7 +1292,6 @@ with FunctionWritter(f'rope') as f1:
 
         # fcr = cos(v)
         f1.write(f'function llm:cos')
-        tellraw_float_var('fcr = ', 'x', 'llm', f1.write)
 
         f1.write(f'scoreboard players operation fcrb llm = xb llm')
         f1.write(f'scoreboard players operation fcre llm = xe llm')
@@ -1356,7 +1303,6 @@ with FunctionWritter(f'rope') as f1:
         # Only rotate k[i : i + 2] if i < kv_dim (K has fewer dimensions than Q)
         if i < kv_dim:
             rotate_v(i, 'k')
-
 
 # Forward propagation of the transformer
 # It's pure torture to debug this
@@ -1388,8 +1334,6 @@ with FunctionWritter('forward') as f:
 
     f.write(f'function llm:copy_emb with storage llm args')
 
-    tellraw_float_array('x[:10] = ', 'x', 0, 10, f.write)  # Debug
-
     # Forward all the layers
     for l in range(n_layers):
         # Attention rmsnorm:
@@ -1405,8 +1349,6 @@ with FunctionWritter('forward') as f:
 
         f.write(f'function llm:rmsnorm_1')
         
-        tellraw_float_array('tx[:10] = ', 'tx', 0, 10, f.write)  # Debug
-        
         # QKV matrix multiplications for this position
         f.write(f'data modify storage llm args.in set value "tx"')
         f.write(f'data modify storage llm args.out set value "q"')
@@ -1416,8 +1358,6 @@ with FunctionWritter('forward') as f:
 
         f.write(f'bossbar set progress value {l * 8 + 1}')
 
-        tellraw_float_array('q[:10] = ', 'q', 0, 10, f.write)  # Debug
-
         f.write(f'data modify storage llm args.in set value "tx"')
         f.write(f'data modify storage llm args.out set value "k"')
         f.write(f'data modify storage llm args.m set value "wk_{l}"')
@@ -1426,8 +1366,6 @@ with FunctionWritter('forward') as f:
         f.write(f'function llm:matmul')
 
         f.write(f'bossbar set progress value {l * 8 + 2}')
-        
-        tellraw_float_array('k[:10] = ', 'k', 0, 10, f.write)  # Debug
 
         f.write(f'data modify storage llm args.in set value "tx"')
         f.write(f'data modify storage llm args.out set value "v"')
@@ -1437,13 +1375,8 @@ with FunctionWritter('forward') as f:
         f.write(f'function llm:matmul')
         
         f.write(f'bossbar set progress value {l * 8 + 3}')
-
-        tellraw_float_array('v[:10] = ', 'v', 0, 10, f.write)  # Debug
         
         f.write(f'function llm:rope')
-
-        tellraw_float_array('q[:10] = ', 'q', 0, 10, f.write)  # Debug
-        tellraw_float_array('k[:10] = ', 'k', 0, 10, f.write)  # Debug
 
         # Delete the earliest context if pos > seq_len
         # cache_idx = pos % seq_len
@@ -1515,12 +1448,8 @@ with FunctionWritter('forward') as f:
                     f1.write(f'execute store result storage llm args.i int 1 run scoreboard players get cache_idx llm')
                     f1.write(f'function llm:get_kc with storage llm args')
                     f1.write(f'scoreboard players add cache_idx llm 1')
-                    
-                    tellraw_float_var('kc[cache_idx] = ', 'x', 'llm', f1.write)
 
                     f1.write(f'function llm:mul')
-
-                    tellraw_float_var(f'q[{h * head_size + i}] * kc[cache_idx] = ', 'x', 'llm', f1.write)
 
                     f1.write(f'scoreboard players operation yb llm = scoreb llm')
                     f1.write(f'scoreboard players operation ye llm = scoree llm')
@@ -1554,8 +1483,6 @@ with FunctionWritter('forward') as f:
                 f1.write(f'scoreboard players add t llm 1')
                 f1.write(f'scoreboard players add i llm 1')
                 f1.write(f'execute if score t llm <= pos llm run function llm:{att_funcname}')
-            
-            tellraw_float_array('av[:10] = ', 'av', 0, 10, f.write)  # Debug
 
             # Softmax the scores to get attention weights, from 0..pos inclusively
 
@@ -1610,8 +1537,6 @@ with FunctionWritter('forward') as f:
                 
                 f1.write(f'function llm:add')
 
-                tellraw_float_var('av[i] - max = ', 'x', 'llm', f1.write)
-
                 f1.write(f'function llm:exp')
                 f1.write(f'function llm:set_av with storage llm args')
 
@@ -1627,8 +1552,6 @@ with FunctionWritter('forward') as f:
                 # i += 1, loop back
                 f1.write(f'scoreboard players add i llm 1')
                 f1.write(f'execute if score i llm < window_len llm run function llm:{esum_funcname}')
-
-            tellraw_float_var('expsum = ', 'expsum', 'llm', f.write)  # Debug
 
             # for i in range(window_len):
             norm_funcname = f'att_{l}_{h}_3'
@@ -1681,8 +1604,6 @@ with FunctionWritter('forward') as f:
                 f1.write(f'scoreboard players operation ae llm = xe llm')
                 f1.write(f'scoreboard players operation as llm = xs llm')
 
-                tellraw_float_var('a = ', 'a', 'llm', f1.write)  # Debug
-
                 for i in range(head_size):
                     # xb[tx_ptr + i] += av[t - start] * vc[cache_idx + i]
                     # Get the attention weight for this timestep
@@ -1696,8 +1617,6 @@ with FunctionWritter('forward') as f:
 
                     f1.write(f'function llm:mul')
 
-                    tellraw_float_var(f'vc[{i}] * a = ', 'x', 'llm', f1.write)  # Debug
-
                     f1.write(f'scoreboard players add cache_idx llm 1')
 
                     # Accumulate the weighted value into tx
@@ -1705,16 +1624,12 @@ with FunctionWritter('forward') as f:
                     f1.write(f'scoreboard players operation yb llm = {tx_ptr + i}b tx')
                     f1.write(f'scoreboard players operation ye llm = {tx_ptr + i}e tx')
                     f1.write(f'scoreboard players operation ys llm = {tx_ptr + i}s tx')
-
-                    # tellraw_float_var(f'tx[{i}] = ', tx_ptr + i, 'tx', f1.write)  # Debug
                     
                     f1.write(f'function llm:add')
 
                     f1.write(f'scoreboard players operation {tx_ptr + i}b tx = xb llm')
                     f1.write(f'scoreboard players operation {tx_ptr + i}e tx = xe llm')
                     f1.write(f'scoreboard players operation {tx_ptr + i}s tx = xs llm')
-
-                    tellraw_float_var(f'tx[{tx_ptr + i}] = ', tx_ptr + i, 'tx', f1.write)  # Debug
 
                 # t += 1, i += 1, loop back
                 f1.write(f'scoreboard players add t llm 1')
@@ -1731,9 +1646,6 @@ with FunctionWritter('forward') as f:
         f.write(f'function llm:matmul')
 
         f.write(f'bossbar set progress value {l * 8 + 5}')
-
-        tellraw_float_array('tx[:10] = ', 'tx', 0, 10, f.write)  # Debug
-        tellraw_float_array('tx2[:10] = ', 'tx2', 0, 10, f.write)  # Debug
 
         # Residual connection back into x
         for i in range(dim):
@@ -1752,8 +1664,6 @@ with FunctionWritter('forward') as f:
             f.write(f'scoreboard players operation {i}e x = xe llm')
             f.write(f'scoreboard players operation {i}s x = xs llm')
 
-        tellraw_float_array('x[:10] = ', 'x', 0, 10, f.write)  # Debug
-
         # FFN rmsnorm
         f.write(f'function llm:rmsnorm_0')
         for j in range(dim):
@@ -1763,8 +1673,6 @@ with FunctionWritter('forward') as f:
             f.write(f'execute store result score {j}e tx run data get storage llm params.ffn_w.{idx}e')
             f.write(f'execute store result score {j}s tx run data get storage llm params.ffn_w.{idx}s')
         f.write(f'function llm:rmsnorm_1')
-
-        tellraw_float_array('tx[:10] = ', 'tx', 0, 10, f.write)  # Debug
 
         # Calculate w1(x) and w3(x) for FFN
         f.write(f'data modify storage llm args.in set value "tx"')
@@ -1776,8 +1684,6 @@ with FunctionWritter('forward') as f:
         
         f.write(f'bossbar set progress value {l * 8 + 6}')
 
-        tellraw_float_array('th[:10] = ', 'th', 0, 10, f.write)  # Debug
-
         f.write(f'data modify storage llm args.in set value "tx"')
         f.write(f'data modify storage llm args.out set value "th2"')
         f.write(f'data modify storage llm args.m set value "w3_{l}"')
@@ -1787,11 +1693,7 @@ with FunctionWritter('forward') as f:
         
         f.write(f'bossbar set progress value {l * 8 + 7}')
         
-        tellraw_float_array('th2[:10] = ', 'th2', 0, 10, f.write)  # Debug
-        
         f.write(f'function llm:silu')
-        
-        tellraw_float_array('th[:10] = ', 'th', 0, 10, f.write)  # Debug
 
         # Final matrix multiplication to get the output of the FFN
         f.write(f'data modify storage llm args.in set value "th"')
@@ -1802,8 +1704,6 @@ with FunctionWritter('forward') as f:
         f.write(f'function llm:matmul')
 
         f.write(f'bossbar set progress value {l * 8 + 8}')
-
-        tellraw_float_array('tx[:10] = ', 'tx', 0, 10, f.write)  # Debug
 
         # Residual connection
         for i in range(dim):
@@ -1821,13 +1721,9 @@ with FunctionWritter('forward') as f:
             f.write(f'scoreboard players operation {i}b x = xb llm')
             f.write(f'scoreboard players operation {i}e x = xe llm')
             f.write(f'scoreboard players operation {i}s x = xs llm')
-        
-        tellraw_float_array('x[:10] = ', 'x', 0, 10, f.write)  # Debug
 
     # Final rmsnorm
     f.write('function llm:rmsnorm_0')
-
-    # tellraw_float_var('ss = ', 'ss', 'llm', f.write)  # Debug
 
     for i in range(dim):
         # x[i] *= rms_final_weight[i] * ss
@@ -1854,15 +1750,11 @@ with FunctionWritter('forward') as f:
         f.write(f'scoreboard players operation {i}e x = xe llm')
         f.write(f'scoreboard players operation {i}s x = xs llm')
 
-    tellraw_float_array('x[:10] = ', 'x', 0, 10, f.write)  # Debug
-
     # Classifier into logits
     f.write(f'function llm:matmul_logits')
 
     f.write(f'bossbar set progress value {n_layers * 8 + vocab_size // dim + 1}')
     f.write(f'bossbar set progress players')
-
-    tellraw_float_array('logits[:10] = ', 'logits', 0, 10, f.write)  # Debug
 
 
 # Setup scoreboard objectives & constants & progress bar & parameters, clear key/value cache
@@ -1896,22 +1788,26 @@ with FunctionWritter('argmax', True, 'Sampling...') as f:
     f.write(f'scoreboard players set ye llm 1000')
     f.write(f'scoreboard players set ys llm -1')
 
+    with FunctionWritter('set_token') as f1:
+        f1.write(f'scoreboard players operation yb llm = xb llm')
+        f1.write(f'scoreboard players operation ye llm = xe llm')
+        f1.write(f'scoreboard players operation ys llm = xs llm')
+        f1.write(f'scoreboard players operation tok llm = i llm')
+
     for i in range(vocab_size):
         f.write(f'scoreboard players operation xb llm = {i}b logits')
         f.write(f'scoreboard players operation xe llm = {i}e logits')
         f.write(f'scoreboard players operation xs llm = {i}s logits')
         f.write(f'function llm:cmp')
-        f.write(f'execute if score r llm matches 1 run scoreboard players operation yb llm = xb llm')
-        f.write(f'execute if score r llm matches 1 run scoreboard players operation ye llm = xe llm')
-        f.write(f'execute if score r llm matches 1 run scoreboard players operation ys llm = xs llm')
-        f.write(f'execute if score r llm matches 1 run scoreboard players set max_i llm {i}')
+        f.write(f'scoreboard players set i llm {i}')
+        f.write(f'execute if score r llm matches 1 run function llm:set_token')
 
 with FunctionWritter('sample') as f:
     for i, vocab in enumerate(vocab):
         repr_vocab = repr(vocab)
         if "\\x" in repr_vocab or "\\r" in repr_vocab or "\\u" in repr_vocab:
             continue
-        f.write(f'execute if score max_i llm matches {i} run return run data modify storage llm args.tokens append value {vocab!r}')
+        f.write(f'execute if score tok llm matches {i} run return run data modify storage llm args.tokens append value {vocab!r}')
 
 with FunctionWritter('generate') as f:
     f.write(f'function llm:setup')
@@ -1927,7 +1823,6 @@ with FunctionWritter('autoregressive') as f:
     f.write(f'function llm:argmax')
     f.write(f'function llm:sample')
     f.write(f'tellraw @a {{"storage":"llm","nbt":"args.tokens[]","separator":""}}')
-    f.write(f'scoreboard players operation tok llm = max_i llm')
     f.write(f'scoreboard players add pos llm 1')
     f.write(f'execute if score pos llm = steps llm run return 1')
     f.write(f'function llm:autoregressive')
@@ -1941,7 +1836,8 @@ with FunctionWritter('generate_continue') as f:
 # Compress into .zip file
 pack_meta = {
     "pack": {
-        "pack_format": 15,
+        "min_format": 88,
+        "max_format": 88,
         "description": f"Llama 2 model (dim={dim}, layers={n_layers})"
     }
 }
