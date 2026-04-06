@@ -11,6 +11,8 @@ This project is inspired by [Andrej Karpathy/llama2.c](https://github.com/karpat
 
 ## How to Use
 
+Totally understand if you don't have a python environment or just want to feel the magic. You can download the pre-generated datapack `stories260K.zip` from this repo and jump to step 3.
+
 ### 1. Prepare the Model
 Obtain a Llama 2 checkpoint and tokenizer in the `.bin` format (using the `export` script from `llama2.c`).
 
