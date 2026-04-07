@@ -1,29 +1,32 @@
 # Minecraft-LLM
 A project that runs the Llama 2 large language model entirely inside Minecraft using only vanilla commands
 
-This project is inspired by [Andrej Karpathy/llama2.c](https://github.com/karpathy/llama2.c) and [Xiaodou's Math Lib](https://github.com/xiaodou8593/math2.0/). It implements full forward inference of a Llama 2 model inside vanilla Minecraft using only commands.
+This project is inspired by [Andrej Karpathy/llama2.c](https://github.com/karpathy/llama2.c) and [Xiaodou's Math Lib](https://github.com/xiaodou8593/math3.0/). It implements full forward inference & tokenizer & sampler of a Llama 2 model inside vanilla Minecraft using only commands.
 
 ## Features
 - **Pure Vanilla**: Works entirely with Minecraft commands, scoreboards, and storage; no mods or plugins.
 - **Full LLaMA Architecture**: Supports GQA (Grouped Query Attention), RoPE (Rotary Position Embedding), RMSNorm, SiLU activation, and multiple Transformer layers.
-- **Floating‑Point Emulation**: Encodes floats as `(base, exponent, sign)` triplets and implements addition, multiplication, division, exponentiation, trigonometric functions, etc., using scoreboard arithmetic.
-- **Automatic Generation**: Python script reads `.bin` checkpoint & tokenizer files and produces a zip file that contains all required `.mcfunction` files; simply import them into your world.
+- **KV Caching**: Efficient attention over a sliding context window.
+- **Tokenization**: BPE encoding directly inside Minecraft using the provided tokenizer file.
+- **Sampling**: Argmax or temperature‑based (0–100 scale).
+- **Progress bar**: Shows initialization, inference, and sampling steps.
+- **Resume / stop**: Interrupt generation and resume later.
 
 ## How to Use
 
-Totally understand if you don't have a python environment or just want to feel the magic. You can download the pre-generated datapack `stories260K.zip` from this repo and jump to step 3. (generated from [this](https://huggingface.co/karpathy/tinyllamas/tree/main/stories260K) model)
+If you don't have a python environment or just want to get it running. You can download the pre-generated datapack `stories260K.zip` from this repo and go to step 3. (generated from [this](https://huggingface.co/karpathy/tinyllamas/tree/main/stories260K) model)
 
 ### 1. Prepare the Model
 Obtain a Llama 2 checkpoint and tokenizer in the `.bin` format (using the `export` script from `llama2.c`).
 
 ### 2. Generate Minecraft Datapack
 ```bash
-python generate.py <checkpoint.bin> <tokenizer.bin> <output>
+python generate.py <checkpoint.bin> <tokenizer.bin> <output.zip>
 ```
-The script will generate a datapack named `<output>.zip`.
+The script will generate a datapack named `<output.zip>`.
 
 ### 3. Import into Your World
-Copy the generated `.zip` file into your Minecraft world’s `datapacks` directory.
+Place the generated .zip file into your world’s datapacks/ folder (no need to unzip).
 
 ### 4. Launch Minecraft
 Version 1.21.11 is recommended, other versions are not guarenteed to work.
@@ -31,58 +34,30 @@ Version 1.21.11 is recommended, other versions are not guarenteed to work.
 ### 5. Run the Model
 Run `/reload` after entering the world.
 
-For auto-regressive generating, execute:
+Use the `/function` command with the following syntax:
 ```
-/function llm:generate {s:<steps>}
+/function llm:generate {s:<steps>,t:<temperature>,i:"<prompt>"}
 ```
-Where `<steps>` is the number of tokens you want the model to generate.
+- `s`: number of tokens to generate (positive integer)
+- `t`: temperature (0 = argmax, 1–100 = scaled temperature, e.g., 50 ≈ 1.0)
+- `i`: input prompt (string, supports any Unicode characters the tokenizer knows)
 
-If you want to continue the generation process after it stops, simply run:
+#### Example:
 ```
-/function llm:generate_continue {s:<steps>}
+/function llm:generate {s:50,t:50,i:"Once upon a time"}
 ```
-Where `<steps>` is the number of additional tokens to generate.
+The model will start generating token by token, printing the output in chat (clearing the screen with newlines each step). A bossbar shows progress.
 
-## Running the model manually
+#### Additional commands:
+- `/function llm:stop`: immediately stop generation
+- `/function llm:resume {s:<additional_steps>}`: resume generation from the current state (e.g., after a server restart)
 
-You can also run the model manually if you want to use this as part of your other project. To initiallize the model, run:
-```
-/function llm:setup
-```
-This initialises scoreboard objectives, constants, parameters and clears the KV cache.
-
-Set the starting token & position, and clear the token buffer:
-```
-/scoreboard players set tok llm 1
-/scoreboard players set pos llm 0
-/data modify storage llm args.tokens set value []
-```
-Then run inference:
-```
-/function llm:forward
-```
-The process may take a few minutes to hours depending on model size. After it finishes, run the following commands to sample:
-```
-/function llm:argmax
-/function llm:sample
-```
-The generated token(s) are stored in `storage llm args.tokens`. View them with:
-```
-/tellraw @a {storage:"llm",nbt:"args.tokens[]",separator:""}
-```
-
-To generate the next token, simply copy the score in `max_i llm` to `tok llm` and increment `pos llm` by 1, and run inference again:
-```
-/scoreboard players operation tok llm = max_i llm
-/scoreboard players add pos llm 1
-
-/function llm:forward
-```
-
-## Limitations
-
-- **Performance**: Inference is really, really slow, a 15M model would take ~20 minutes to complete a forward pass on my laptop.
-- **Sampling**: Currently only argmax is implemented; no stochastic sampling.
+## Performance and Limitations
+Inference speed: Extremely slow. A 15M parameter model takes ~20 minutes per token on my laptop.
+Context window: Limited by sequence length from the checkpoint (typically 512, 1024, or 2048). The KV cache is allocated statically.
+Model size: The datapack stores all weights in storage, larger models may crash the game.
+Command limit – For larger models, even with tick splitting, some operations may still surpass the 32 bit `max_command_sequence_length` limit and truncate the execution.
+Recommended model size: Use tiny models that fit within a few hundred MB of datapack size and run (slowly) on a single player world.
 
 ## Acknowledgements
 
@@ -92,6 +67,6 @@ To generate the next token, simply copy the score in `max_i llm` to `tok llm` an
 
 ## License
 
-MIT
+This project is for educational and entertainment purposes. Use at your own risk – it may cause lag, crashes, or spontaneous combustion of your Minecraft server.
 
 ---
