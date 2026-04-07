@@ -54,9 +54,13 @@ The model will start generating token by token, printing the output in chat (cle
 
 ## Performance and Limitations
 Inference speed: Extremely slow. A 15M parameter model takes ~20 minutes per token on my laptop.
+
 Context window: Limited by sequence length from the checkpoint (typically 512, 1024, or 2048). The KV cache is allocated statically.
+
 Model size: The datapack stores all weights in storage, larger models may crash the game.
+
 Command limit – For larger models, even with tick splitting, some operations may still surpass the 32 bit `max_command_sequence_length` limit and truncate the execution.
+
 Recommended model size: Use tiny models that fit within a few hundred MB of datapack size and run (slowly) on a single player world.
 
 ## Acknowledgements
