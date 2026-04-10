@@ -35,7 +35,7 @@ Place the generated .zip file into your world’s datapacks/ folder (no need to 
 Version 1.21.11 is recommended, other versions are not guaranteed to work.
 
 ### 5. Run the Model
-After entering the world, run `/reload` once.
+After entering the world, run `/reload` once, and execute `/gamerule max_command_chain_length 2147483647`.
 
 Use the `/function` command with the following syntax:
 ```
