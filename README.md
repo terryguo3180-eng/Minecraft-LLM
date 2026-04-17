@@ -37,26 +37,49 @@ Version 1.21.11 is recommended, other versions are not guaranteed to work.
 ### 5. Run the Model
 After entering the world, run `/reload` once, and execute `/gamerule max_command_chain_length 2147483647`.
 
-Use the `/function` command with the following syntax:
+You can use two main commands: generate for fixed‑length text generation, and chat for multi‑turn conversation.
+Note: In order to `print` in Minecraft, the datapack actually dumps all the output string pieces into a list and uses `/tellraw @a ["\n\n\n...",{storage:"llm",nbt:"args.output[]",sep:""}]` to print it. You might want to clear this buffer with `/data modify storage llm args.output set value []` every time before you run a new generation.
+
+#### Command 1: Generate a fixed number of tokens
 ```
 /function llm:generate {s:<steps>,t:<temperature>,i:"<prompt>"}
 ```
-- `s`: number of tokens to generate (positive integer)
-- `t`: temperature (0 = argmax, 1–100 = scaled temperature, e.g., 50 ≈ 1.0)
-- `i`: input prompt (string, supports any Unicode characters the tokenizer knows)
+- `s`: Number of tokens to generate (positive integer)
+- `t`: Temperature (0 = argmax, 1–100 = scaled temperature, e.g., 50 ≈ 1.0)
+- `i`: Input prompt (string, supports any Unicode characters the tokenizer knows)
 
-#### Example:
+##### Example:
 ```
 /function llm:generate {s:50,t:50,i:"Once upon a time"}
 ```
 The model will start generating token by token, printing the output in chat (clearing the screen with newlines each step). A bossbar shows progress.
 
-#### Additional commands:
+#### Command 2: Multiturn Conversation
+```
+/function llm:chat {t:<temperature>,i:"<input>"}
+```
+- `t`: Temperature (same as above)
+- `i`: User’s message
+
+##### Example of a full conversation:
+Just putting text here for now because it takes days to interact with the model in game. Will add image of Minecraft dialog later.
+```
+User: Hello there!
+Assistant: I am surprised to see you here today, how have you been?
+User: I'm good, how about you?
+Assistant: I enjoy watching the clouds change shapes while I drink my coffee outside.
+User: What have you been up to lately?
+Assistant: I have been enjoying outdoor activities and exploring the beautiful scenery around me.
+User: Can you share some of your experiences?     
+Assistant: I recently spent a second reading book that opened my mind and inspired me.
+```
+
+#### Additional commands (work for both `generate` and `chat`):
 - `/function llm:stop`: Immediately stop generation.
 - `/function llm:resume {s:<additional_steps>}`: Resume generation from the current state.
 
 ## Performance and Limitations
-- Inference speed is extremely slow. A 15M parameter model takes ~20 minutes per token on my laptop.
+- Inference speed is extremely slow. The 15M parameter chat model takes ~20 minutes per token on my laptop.
 - All the parameters are spelled out explicitly as text in `params.mcfunction`, larger models may crash the game when reloading.
 - Even with tick splitting, larger models may still exceed the 32-bit `max_command_sequence_length` limit during a matrix multiplication, truncating command execution.
 
