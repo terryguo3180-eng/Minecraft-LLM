@@ -1,5 +1,11 @@
 # Complete llama2 implementation in pure Minecraft commands
-# TerryGuo 4/7/2026
+# TerryGuo 4/16/2026
+# An mcfunction port of llama2.c
+
+# v0.1: Added basic transformer forward logic, can generate text from scratch
+# v0.2: Added temperature sampling & sentencepiece tokenizer, can generate text that follows a given
+#       prompt, also with a bit of uncertainty
+# v0.3: Added chat function, fixed a few bugs
 
 import argparse
 import json
@@ -53,7 +59,7 @@ with (
 
     # Get the vocabulary list
     for _ in range(0, vocab_size):
-        vocab_scores.append(int(1000 * struct.unpack('f', tfile.read(4))[0]))
+        vocab_scores.append(int(struct.unpack('f', tfile.read(4))[0]))
         length = struct.unpack('i', tfile.read(4))[0]
         bstr = tfile.read(length)
         if type(bstr) is not str:
@@ -1323,7 +1329,55 @@ with FunctionWritter(f'rope') as f:
 
 # Forward propagation of the transformer
 # It's pure torture to debug this
+
 with FunctionWritter('forward') as f:
+    # Full forward pass including final norm and classifier
+
+    # Setup the progress bar
+    # There are 8 updates in each layer, and `vocab_size // dim` updates in the final matrix multiplication
+    f.write(f'bossbar set progress max {n_layers * 8 + vocab_size // dim}')
+    f.write(f'bossbar set progress value 0')
+    f.write(f'bossbar set progress name [{{"text":"Inferring, Step #","color":"green","bold":true}},{{"score":{{"name":"pos","objective":"llm"}}}}]')
+    f.write(f'bossbar set progress players @a')
+
+    f.write(f'function llm:forward_hidden')
+    f.split(True, 8 * n_layers + 1)
+
+    # Final rmsnorm
+    f.write('function llm:rmsnorm_0')
+
+    for i in range(dim):
+        # x[i] *= rms_final_weight[i] * ss
+        rms_ffn_i = rms_final_weight[i]
+        pb, pe, ps = encode_float(rms_ffn_i)
+
+        f.write(f'scoreboard players operation xb llm = {i}b x')
+        f.write(f'scoreboard players operation xe llm = {i}e x')
+        f.write(f'scoreboard players operation xs llm = {i}s x')
+
+        f.write(f'scoreboard players set yb llm {pb}')
+        f.write(f'scoreboard players set ye llm {pe}')
+        f.write(f'scoreboard players set ys llm {ps}')
+
+        f.write(f'function llm:mul')
+
+        f.write(f'scoreboard players operation yb llm = ssb llm')
+        f.write(f'scoreboard players operation ye llm = sse llm')
+        f.write(f'scoreboard players operation ys llm = sss llm')
+
+        f.write(f'function llm:mul')
+
+        f.write(f'scoreboard players operation {i}b x = xb llm')
+        f.write(f'scoreboard players operation {i}e x = xe llm')
+        f.write(f'scoreboard players operation {i}s x = xs llm')
+
+    # Classifier into logits
+    f.write(f'function llm:matmul_logits')
+
+
+with FunctionWritter('forward_hidden') as f:
+    # Process a single token at a given position (prompt processing)
+
     # Convert pos (int) to float
     f.write(f'scoreboard players operation xb llm = pos llm')
     f.write(f'scoreboard players set xe llm 7')
@@ -1333,13 +1387,6 @@ with FunctionWritter('forward') as f:
     f.write(f'scoreboard players operation posb llm = xb llm')
     f.write(f'scoreboard players operation pose llm = xe llm')
     f.write(f'scoreboard players operation poss llm = xs llm')
-
-    # Setup the progress bar
-    # There are 8 updates in each layer, and `vocab_size // dim` updates in the final matrix multiplication
-    f.write(f'bossbar set progress max {n_layers * 8 + vocab_size // dim}')
-    f.write(f'bossbar set progress value 0')
-    f.write(f'bossbar set progress name [{{"text":"Inferring, Step #","color":"green","bold":true}},{{"score":{{"name":"pos","objective":"llm"}}}}]')
-    f.write(f'bossbar set progress players @a')
 
     # Copy the token embedding into x
     f.write(f'scoreboard players operation start llm = tok llm')
@@ -1744,39 +1791,10 @@ with FunctionWritter('forward') as f:
             f.write(f'scoreboard players operation {i}e x = xe llm')
             f.write(f'scoreboard players operation {i}s x = xs llm')
 
-    # Final rmsnorm
-    f.write('function llm:rmsnorm_0')
 
-    for i in range(dim):
-        # x[i] *= rms_final_weight[i] * ss
-        rms_ffn_i = rms_final_weight[i]
-        pb, pe, ps = encode_float(rms_ffn_i)
+# Tokenize function
+# -----------------
 
-        f.write(f'scoreboard players operation xb llm = {i}b x')
-        f.write(f'scoreboard players operation xe llm = {i}e x')
-        f.write(f'scoreboard players operation xs llm = {i}s x')
-
-        f.write(f'scoreboard players set yb llm {pb}')
-        f.write(f'scoreboard players set ye llm {pe}')
-        f.write(f'scoreboard players set ys llm {ps}')
-
-        f.write(f'function llm:mul')
-
-        f.write(f'scoreboard players operation yb llm = ssb llm')
-        f.write(f'scoreboard players operation ye llm = sse llm')
-        f.write(f'scoreboard players operation ys llm = sss llm')
-
-        f.write(f'function llm:mul')
-
-        f.write(f'scoreboard players operation {i}b x = xb llm')
-        f.write(f'scoreboard players operation {i}e x = xe llm')
-        f.write(f'scoreboard players operation {i}s x = xs llm')
-
-    # Classifier into logits
-    f.write(f'function llm:matmul_logits')
-
-
-# Tokenize function, convert the input prompt into a sequence of tokens
 with FunctionWritter('encode') as f:
     # Byte-pair encoding
 
@@ -2156,7 +2174,6 @@ with FunctionWritter('generate') as f:
     f.write(f'execute if score temperature llm matches 101.. run return run tellraw @a {{"text":"Temperature must be an integer between 0 and 100 inclusive","color":"red"}}')
 
     # Clear the token buffer
-    f.write(f'data modify storage llm args.tokens set value []')
     f.write(f'data modify storage llm args.prompt_tokens set value []')
 
     # If there is a prompt, tokenize it
@@ -2165,7 +2182,7 @@ with FunctionWritter('generate') as f:
 
     # Initiallize
     f.write(f'function llm:setup')
-    f.write(f'scoreboard players set tok llm 1')
+    f.write(f'scoreboard players set tok llm 1')  # BOS token
     f.write(f'scoreboard players set pos llm 0')
 
     # t = float(temperature / 50)
@@ -2184,21 +2201,44 @@ with FunctionWritter('generate') as f:
 
 with FunctionWritter('autoregressive') as f:
     # Forward the transformer to get logits for the next token
-    f.write(f'function llm:forward')
+    f.write(f'function llm:autoregressive_forward')
     # Make sure the next inference is executed after all the scheduled ticks in llm:forward
-    f.write(f'schedule function llm:autoregressive_next {8 * n_layers + vocab_size // dim + 3}t')
+    f.write(f'execute if data storage llm args{{prompt_tokens:[]}} run schedule function llm:autoregressive_next {8 * n_layers + 4 + vocab_size // dim}t')
+    f.write(f'execute unless data storage llm args{{prompt_tokens:[]}} run schedule function llm:autoregressive_next {8 * n_layers + 1}t')
+    
+with FunctionWritter('autoregressive_forward') as f:
+    f.write(f'execute unless data storage llm args{{prompt_tokens:[]}} run return run function llm:autoregressive_forward_prompt')
+    # Setup the progress bar
+    # There are 8 updates in each layer, and `vocab_size // dim` updates in the final matrix multiplication
+    f.write(f'bossbar set progress max {n_layers * 8 + vocab_size // dim}')
+    f.write(f'bossbar set progress value 0')
+    f.write(f'bossbar set progress name [{{"text":"Inferring, Step #","color":"green","bold":true}},{{"score":{{"name":"pos","objective":"llm"}}}}]')
+    f.write(f'bossbar set progress players @a')
+    f.write(f'function llm:forward')
+
+with FunctionWritter('autoregressive_forward_prompt') as f:
+    # Setup the progress bar
+    # There are 8 updates in each layer
+    f.write(f'bossbar set progress max {n_layers * 8}')
+    f.write(f'bossbar set progress value 0')
+    f.write(f'bossbar set progress name [{{"text":"Processing prompt token #","color":"gold","bold":true}},{{"score":{{"name":"pos","objective":"llm"}}}}]')
+    f.write(f'bossbar set progress players @a')
+    f.write(f'function llm:forward_hidden')
+
+
+clear_screen = "\\n" * 100
 
 with FunctionWritter('autoregressive_next') as f:
     # If we are still processing the input prompt, force the next prompt token
     f.write(f'execute unless data storage llm args{{prompt_tokens:[]}} run return run function llm:next_prompt_token')
     
     next_forward_cmds = [
-        f'function llm:get_token',
-        f'data modify storage llm args.tokens append from storage llm args.tok',
-        f'tellraw @a ["{'\\n' * 100}",{{"storage":"llm","nbt":"args.tokens[]","separator":""}}]',
-        f'scoreboard players add pos llm 1',
+        f'bossbar set progress players',  # Clear progress bar
+        f'function llm:get_token',  # Get token string, store into `storage llm args.tok`
+        f'data modify storage llm args.output append from storage llm args.tok',  # Append to output buffer
+        f'tellraw @a ["{clear_screen}",{{"storage":"llm","nbt":"args.output[]","separator":""}}]',  # Print the output
+        f'scoreboard players add pos llm 1',  # Increment position
         f'execute if score pos llm = steps llm run return 1',
-        f'bossbar set progress players',
         f'function llm:autoregressive',
     ]
 
@@ -2227,12 +2267,103 @@ with FunctionWritter('resume') as f:
 # Terminate the generation loop
 with FunctionWritter('stop') as f:
     f.write(f'bossbar set progress players')
-    for i in range(1, 8 * n_layers):
-        f.write(f'schedule clear llm:forward_{i}')
+    f.write(f'schedule clear llm:forward_0')
+    for i in range(0, 8 * n_layers):
+        f.write(f'schedule clear llm:forward_hidden_{i}')
+    f.write(f'schedule clear llm:chat_process_input_0')
+    f.write(f'schedule clear llm:respond_0')
     f.write(f'schedule clear llm:autoregressive_next')
     f.write(f'schedule clear llm:matmul_logits_schedule')
     f.write(f'tellraw @a {{"text":"Stopped inferring","color":"red"}}')
 
+
+# Chat function
+with FunctionWritter('chat') as f:
+    # Get command prompt arguments
+    # /function llm:chat {t:<temperature>,i:<message>}
+    f.write(f'$scoreboard players set temperature llm $(t)')
+
+    # if not 0 <= temperature <= 100: error
+    f.write(f'execute if score temperature llm matches ..-1 run return run tellraw @a {{"text":"Temperature must be an integer between 0 and 100 inclusive","color":"red"}}')
+    f.write(f'execute if score temperature llm matches 101.. run return run tellraw @a {{"text":"Temperature must be an integer between 0 and 100 inclusive","color":"red"}}')
+
+    # Make sure that the message is not empty
+    f.write(f'$data modify storage llm args.prompt set value "$(i)"')
+    f.write(f'execute if data storage llm args{{prompt:""}} run return run tellraw @a {{"text":"Message must be non-empty","color":"red"}}')
+    # Render user/system prompts into the Llama 2 Chat schema
+    f.write(f'$data modify storage llm args.prompt set value "[INST] $(i) [/INST]"')
+
+    # Clear the token buffer
+    f.write(f'$data modify storage llm args.output append value "\\nUser: $(i)\\nAssistant:"')
+    f.write(f'tellraw @a ["{clear_screen}",{{"storage":"llm","nbt":"args.output[]","separator":""}}]')
+    f.write(f'data modify storage llm args.prompt_tokens set value []')
+
+    # Tokenize the rendered message
+    f.write(f'function llm:encode')
+    # Add EOS(1) token at the beginning
+    f.write(f'data modify storage llm args.prompt_tokens prepend value 1')
+    # Pop the final token into final_tok
+    f.write(f'execute store result score final_tok llm run data get storage llm args.prompt_tokens[-1]')
+    f.write(f'data remove storage llm args.prompt_tokens[0]')
+
+    # Initiallize
+    f.write(f'function llm:setup')
+
+    # t = float(temperature / 50)
+    f.write(f'scoreboard players operation xb llm = temperature llm')
+    f.write(f'scoreboard players operation xb llm *= 2 llm')
+    f.write(f'scoreboard players set xe llm 5')
+    f.write(f'scoreboard players set xs llm 1')
+    f.write(f'function llm:float_5')
+    f.write(f'execute if score xb llm matches 100000000.. run function llm:float_15')
+    f.write(f'scoreboard players operation tb llm = xb llm')
+    f.write(f'scoreboard players operation te llm = xe llm')
+    f.write(f'scoreboard players operation ts llm = xs llm')
+
+    # Process the user input
+    f.write(f'scoreboard players set pos llm 0')
+    f.write(f'execute store result score len llm run data get storage llm args.prompt_tokens')
+    f.write(f'function llm:chat_process_input')
+
+with FunctionWritter('chat_process_input') as f:
+    f.write(f'execute store result score tok llm run data get storage llm args.prompt_tokens[0]')
+    f.write(f'data remove storage llm args.prompt_tokens[0]')
+    # Setup the progress bar
+    # There are 8 updates in each layer
+    f.write(f'bossbar set progress max {n_layers * 8}')
+    f.write(f'bossbar set progress value 0')
+    f.write(f'bossbar set progress name [{{"text":"Processing prompt token #","color":"gold","bold":true}},{{"score":{{"name":"pos","objective":"llm"}}}}]')
+    f.write(f'bossbar set progress players @a')
+    f.write(f'function llm:forward_hidden')
+    f.split(True, 8 * n_layers + 1)
+    f.write(f'scoreboard players add pos llm 1')
+
+    f.write(f'execute if score pos llm = len llm run scoreboard players operation tok llm = final_tok llm')  # Restore to final_tok
+    f.write(f'execute if score pos llm = len llm run return run schedule function llm:respond 1t')
+
+    f.write(f'function llm:chat_process_input')
+
+with FunctionWritter('respond') as f:
+    # Setup the progress bar
+    # There are 8 updates in each layer, and `vocab_size // dim` updates in the final matrix multiplication
+    f.write(f'bossbar set progress max {n_layers * 8 + vocab_size // dim}')
+    f.write(f'bossbar set progress value 0')
+    f.write(f'bossbar set progress name [{{"text":"Inferring, Step #","color":"green","bold":true}},{{"score":{{"name":"pos","objective":"llm"}}}}]')
+    f.write(f'bossbar set progress players @a')
+    f.write(f'function llm:forward')
+    
+    f.split(True, 8 * n_layers + 4 + vocab_size // dim)
+
+    f.write(f'execute if score temperature llm matches 0 run function llm:argmax')
+    f.write(f'execute unless score temperature llm matches 0 run function llm:temperature_sample')
+    f.write(f'bossbar set progress players')  # Clear progress bar
+    f.write(f'execute if score tok llm matches 2 run return 1')  # Break the loop if it generates EOS token
+    
+    f.write(f'function llm:get_token')
+    f.write(f'data modify storage llm args.output append from storage llm args.tok')
+    f.write(f'tellraw @a ["{clear_screen}",{{"storage":"llm","nbt":"args.output[]","separator":""}}]')
+    f.write(f'scoreboard players add pos llm 1')
+    f.write(f'function llm:respond')
 
 # Initialization function
 # -----------------------
