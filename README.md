@@ -22,9 +22,9 @@ Obtain a Llama 2 checkpoint and tokenizer in the `.bin` format (using the `expor
 
 ### 2. Generate Minecraft Datapack
 ```bash
-python generate.py <checkpoint.bin> <tokenizer.bin> <output.zip>
+python generate.py <checkpoint.bin> -z <tokenizer.bin> -o <pack>.zip
 ```
-The script will generate a datapack named `<output.zip>`.
+The script will generate a datapack named `<pack>.zip`. The namespace inside the pack (and thus the name you will use in commands) is exactly `<pack>` (the file name without .zip).
 
 ### 3. Import into Your World
 Place the generated .zip file into your world’s datapacks/ folder (no need to unzip).
@@ -37,11 +37,11 @@ After entering the world, run `/reload` once, and execute `/gamerule max_command
 
 You can use two main commands: generate for fixed‑length text generation, and chat for multi‑turn conversation.
 
-Note: In order to `print` in Minecraft, the datapack actually dumps all the output string pieces into a list and uses `/tellraw @a ["\n\n\n...",{storage:"llm",nbt:"args.output[]",sep:""}]` to print it. You might want to clear this buffer with `/data modify storage llm args.output set value []` every time before you run a new generation.
+Note: In order to `print` in Minecraft, the datapack actually dumps all the output string pieces into a list and uses `/tellraw @a ["\n\n\n...",{storage:"<pack>",nbt:"args.output[]",sep:""}]` to print it. You might want to clear this buffer with `/data modify storage <pack> args.output set value []` every time before you run a new generation.
 
 #### Command 1: Generate a fixed number of tokens
 ```
-/function llm:generate {s:<steps>,t:<temperature>,i:"<prompt>"}
+/function <pack>:generate {s:<steps>,t:<temperature>,i:"<prompt>"}
 ```
 - `s`: Number of tokens to generate (positive integer)
 - `t`: Temperature (0 = argmax, 1–100 = scaled temperature, e.g., 50 ≈ 1.0)
@@ -49,13 +49,13 @@ Note: In order to `print` in Minecraft, the datapack actually dumps all the outp
 
 ##### Example:
 ```
-/function llm:generate {s:50,t:50,i:"Once upon a time"}
+/function <pack>:generate {s:50,t:50,i:"Once upon a time"}
 ```
 The model will start generating token by token, printing the output in chat (clearing the screen with newlines each step). A bossbar shows progress.
 
 #### Command 2: Multiturn Conversation
 ```
-/function llm:chat {t:<temperature>,i:"<input>"}
+/function <pack>:chat {t:<temperature>,i:"<input>"}
 ```
 - `t`: Temperature (same as above)
 - `i`: User’s message
@@ -74,8 +74,8 @@ Assistant: I recently spent a second reading book that opened my mind and inspir
 ```
 
 #### Additional commands (work for both `generate` and `chat`):
-- `/function llm:stop`: Immediately stop generation.
-- `/function llm:resume {s:<additional_steps>}`: Resume generation from the current state.
+- `/function <pack>:stop`: Immediately stop generation.
+- `/function <pack>:resume {s:<additional_steps>}`: Resume generation from the current state.
 
 ## Performance and Limitations
 - Inference speed is extremely slow. The 15M parameter chat model takes ~20 minutes per token on my laptop.
