@@ -54,6 +54,7 @@ Note: In order to `print` in Minecraft, the datapack actually dumps all the outp
 The model will start generating token by token, printing the output in chat (clearing the screen with newlines each step). A bossbar shows progress.
 
 #### Command 2: Multiturn Conversation
+Run `/function <pack>:setup` only once, and for each turn, execute:
 ```
 /function <pack>:chat {t:<temperature>,i:"<input>"}
 ```
