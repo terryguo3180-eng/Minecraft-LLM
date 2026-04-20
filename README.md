@@ -62,7 +62,7 @@ Run `/function <pack>:setup` only once, and for each turn, execute:
 - `i`: User’s message
 
 ##### Example of a full conversation:
-Just putting text here for now because it takes days to interact with the model in game. Will add image of Minecraft dialog later.
+Just putting text here for now because it takes hours to interact with the model in game. Will add image of Minecraft dialog later.
 ```
 User: Hello there!
 Assistant: I am surprised to see you here today, how have you been?
