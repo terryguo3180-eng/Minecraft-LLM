@@ -1670,9 +1670,6 @@ class Llama2DatapackGenerator:
             f.write(f'execute store result score final_tok {pack} run data get storage {pack} args.prompt_tokens[-1]')
             f.write(f'data remove storage {pack} args.prompt_tokens[0]')
 
-            # Initiallize
-            f.write(f'function {pack}:setup')
-
             # t = float(temperature / 50)
             f.write(f'scoreboard players operation xb {pack} = temperature {pack}')
             f.write(f'scoreboard players operation xb {pack} *= 2 {pack}')
