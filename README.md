@@ -15,7 +15,7 @@ If you don't have a Python environment or just want to get started quickly, you 
 
 - `chat15m.zip` – a 15M parameter dialogue model that supports multi‑turn chat, ~20 minutes per token (see the chat command below).
   Trained on the TinyChat dataset.
-  This file exceeds GitHub’s file size limit, so you need to download it from [here](https://www.mediafire.com/file/ya6w701lsw9cgv1/chat15m.zip/file).
+  You can download it from [here](https://www.mediafire.com/file/ya6w701lsw9cgv1/chat15m.zip/file).
 
 ### 1. Prepare the Model
 Obtain a Llama 2 checkpoint and tokenizer in the `.bin` format (using the `export` script from llama2.c).
