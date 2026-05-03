@@ -1611,15 +1611,8 @@ class Llama2DatapackGenerator:
             for cmd in next_forward_cmds:
                 f.write(cmd)
 
-    def _generate_resume_stop(self):
+    def _generate_stop(self):
         pack = self.pack
-        with self.write_function('resume') as f:
-            f.write(f'$scoreboard players set steps {pack} $(s)')
-            f.write(f'execute if score steps {pack} matches ..0 run return run tellraw @a {{"text":"Steps must be a positive integer!","color":"red"}}')
-            f.write(f'tellraw @a [{{"text":"Resuming from step #","color":"green"}},{{"score":{{"name":"pos","objective":"{pack}"}}}}]')
-            f.write(f'scoreboard players operation steps {pack} += pos {pack}')
-            f.write(f'function {pack}:autoregressive')
-
         # Terminate the generation loop
         with self.write_function('stop') as f:
             f.write(f'bossbar set progress players')
@@ -1758,6 +1751,9 @@ class Llama2DatapackGenerator:
             # Clear KV cache
             f.write(f'scoreboard players reset * kc')
             f.write(f'scoreboard players reset * vc')
+
+            # Clear the output buffer
+            f.write(f'data modify storage {pack} args.output set value []')
 
 
 class Llama2Model:
