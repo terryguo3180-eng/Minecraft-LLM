@@ -76,7 +76,6 @@ Assistant: I recently spent a second reading book that opened my mind and inspir
 
 #### Additional commands (work for both `generate` and `chat`):
 - `/function <pack>:stop`: Immediately stop generation.
-- `/function <pack>:resume {s:<additional_steps>}`: Resume generation from the current state.
 
 ## Performance and Limitations
 - Inference speed is extremely slow. The 15M parameter chat model takes ~20 minutes per token on my laptop.
